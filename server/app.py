@@ -25,15 +25,9 @@ bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 api = Api(app)
 
-with app.app_context():
-    db.create_all()
-    # Initialize the database and create tables
-    # db.create_all()
-    # Add initial data if needed
-    # user = User(username='admin', password=bcrypt.generate_password_hash('password').decode('utf-8'))
-    # db.session.add(user)
-    # db.session.commit()
-
+# with app.app_context():
+#     db.create_all()
+#     db.session.commit()
 class UsersResource(Resource):
     def get(self):
         users = [user.to_dict() for user in User.query.all()]
