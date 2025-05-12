@@ -15,8 +15,8 @@ class MobileMoneyProv(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    payment_methods = db.relationship('payment_methods', backref='provider', lazy='select')
-    exchange_rate = db.relationship('ExchangeRate', backref='provider', lazy='select')
+    payment_methods = db.relationship('payment_methods', back_populates='provider', cascade='all, delete-orphan')
+    exchange_rate = db.relationship('ExchangeRate', back_populates='provider')
 
     def __repr__(self):
         return f'<MobileMoneyProvider {self.provider_name}>'

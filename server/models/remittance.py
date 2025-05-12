@@ -6,10 +6,11 @@ class Remittance(db.Model, SerializerMixin):
     """Remittance model for storing remittance information."""
     __tablename__ = 'remittances'
 
-    serialize_rules = ('-sender_id', 'payment_method_id', '-created_at', '-updated_at', '-transactions.remittance', '-payment_method.remittances', '-exchange_rate.remittance')
+    serialize_rules = ( '-created_at', '-updated_at', '-sender.sent_remittances', '-receiver.received_remittances', '-escrow.remittance', '-lightning_invoice.remittance','-transactions.remittance', '-payment_method.remittances')
 
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     receiver_name = db.Column(db.String(100), nullable=False)
     receiver_phone = db.Column(db.String(20), nullable=False)
     amount_btc = db.Column(db.Numeric(10, 8), nullable=False)
@@ -20,10 +21,13 @@ class Remittance(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    sender = db.relationship('User', backref='remittances', lazy='select')
-    payment_method = db.relationship('PaymentMethod', backref='remittances', lazy='select')
-    transactions = db.relationship('Transaction', backref='remittance', lazy='select')
-    exchange_rate = db.relationship('ExchangeRate', backref='remittance', lazy='select')
+    sender = db.relationship('User',foreign_keys=[sender_id], back_populates='remittances')
+    receiver = db.relationship('User',foreign_keys=[receiver_id], back_populates='received_remittances')
+    payment_method = db.relationship('PaymentMethod', back_populates='remittances')
+    transactions = db.relationship('Transaction', back_populates='remittance')
+    escrow = db.relationship('Escrow', back_populates='remittance',  cascade='all, delete-orphan')
+    lightning_invoice = db.relationship('LightningInvoice', back_populates='remittance', cascade='all, delete-orphan')
+
 
     def __repr__(self):
         return f'<Remittance {self.id}>'

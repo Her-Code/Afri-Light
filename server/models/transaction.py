@@ -8,7 +8,7 @@ class Transaction(db.Model, SerializerMixin):
     
     __tablename__ = 'transactions'
 
-    serialize_rules = ('-sender_id', '-remittance_id', '-created_at', '-updated_at', '-remittance.transactions', '-sender.transactions','-remittance.exchange_rate')
+    serialize_rules = ('-remittance_id', '-created_at', '-updated_at', '-remittance.transactions', '-sender.transactions')
 
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -21,8 +21,8 @@ class Transaction(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    remittance = db.relationship('Remittance', backref='transactions', lazy='select')
-    sender = db.relationship('User', backref='transactions', lazy='select')
+    remittance = db.relationship('Remittance', back_populates='transactions', )
+    sender = db.relationship('User', back_populates='transactions', )
 
     def __repr__(self):
         return f'<Transaction {self.id}>'
