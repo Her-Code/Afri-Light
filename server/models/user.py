@@ -1,7 +1,11 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from sqlalchemy_serializer import SerializerMixin
+from sqlalchemy.ext.hybrid import hybrid_property
 from models.db import db
+from flask_bcrypt import Bcrypt
+
+bcrypt = Bcrypt()
 
 class User(db.Model, SerializerMixin):
 
@@ -25,6 +29,18 @@ class User(db.Model, SerializerMixin):
     sent_remittances = db.relationship('Remittance', foreign_keys='Remittance.sender_id' ,back_populates='user', cascade='all, delete-orphan')
     received_remittances = db.relationship('Remittance', foreign_keys='Remittance.receiver_id', back_populates='receiver', cascade='all, delete-orphan')
     wallets = db.relationship('Wallet', back_populates='user', cascade='all, delete-orphan')
+
+
+    @hybrid_property
+    def password(self):
+        return self._password_hash
+
+    @password.setter
+    def password(self, password):
+        self._password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self._password_hash, password)
 
     def __repr__(self):
         return f'<User {self.email}>'
