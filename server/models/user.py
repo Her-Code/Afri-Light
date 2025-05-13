@@ -13,7 +13,7 @@ class User(db.Model, SerializerMixin):
     
     __tablename__ = 'users'
 
-    serialize_rules = ('-password_hash', '-created_at', '-updated_at', '-transactions.user', '-sent_remittances.user','-received_remittances.user', '-wallets.user')
+    serialize_rules = ('-password_hash', '-created_at', '-updated_at', '-transactions.user', '-sent_remittance.user','-received_remittances.user', '-wallets.user')
 
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String(100), nullable=False)
@@ -26,7 +26,7 @@ class User(db.Model, SerializerMixin):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     transactions = db.relationship('Transaction', back_populates='user')
-    sent_remittances = db.relationship('Remittance', foreign_keys='Remittance.sender_id' ,back_populates='user', cascade='all, delete-orphan')
+    sent_remittance = db.relationship('Remittance', foreign_keys='Remittance.sender_id' ,back_populates='user', cascade='all, delete-orphan')
     received_remittances = db.relationship('Remittance', foreign_keys='Remittance.receiver_id', back_populates='receiver', cascade='all, delete-orphan')
     wallets = db.relationship('Wallet', back_populates='user', cascade='all, delete-orphan')
 
