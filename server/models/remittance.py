@@ -13,13 +13,15 @@ class Remittance(db.Model, SerializerMixin):
     receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     receiver_name = db.Column(db.String(100), nullable=False)
     receiver_phone = db.Column(db.String(20), nullable=False)
-    amount_btc = db.Column(db.Numeric(10, 8), nullable=False)
+    amount_sats = db.Column(db.BigInteger, nullable=False)
     amount_fiat = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(50), nullable=False)
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'), nullable=False)
     receiver_currency = db.Column(db.String(4), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    preferred_payout_currency = db.Column(db.String(4), nullable=True) 
 
     sender = db.relationship('User',foreign_keys=[sender_id], back_populates='remittances')
     receiver = db.relationship('User',foreign_keys=[receiver_id], back_populates='received_remittances')
