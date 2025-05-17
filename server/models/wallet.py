@@ -9,7 +9,8 @@ class Wallet(db.Model, SerializerMixin):
     serialize_rules = ('-created_at', '-updated_at', '-user.wallets')
 
     id = db.Column(db.Integer, primary_key=True)
-    balance = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    balance_fiat = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    balance_sats = db.Column(db.BigInteger, default=0)  # Satoshis stored as integer
     wallet_address = db.Column(db.String(255), nullable=False)
     currency_code = db.Column(db.String(4), nullable=False) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
