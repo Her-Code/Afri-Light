@@ -18,8 +18,8 @@ class ExchangeRate(db.Model, SerializerMixin):
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'), nullable=False)
     provider_id = db.Column(db.Integer, db.ForeignKey('mobile_money_prov.id'), nullable=False)
 
-    payment_method = db.relationship('payment_methods', back_populates='exchange_rates', lazy='select')
-    provider = db.relationship('mobile_money_prov', back_populates='exchange_rates', lazy='select')
+    payment_method = db.relationship('PaymentMethod',back_populates='exchange_rates',cascade='all, delete-orphan')
+    provider = db.relationship(  'MobileMoneyProv',back_populates='exchange_rates',cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<ExchangeRate {self.currency_code}>'
