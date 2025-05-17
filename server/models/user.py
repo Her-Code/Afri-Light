@@ -25,15 +25,17 @@ class User(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    transactions = db.relationship('Transaction', back_populates='user')
+    preferred_payout_currency = db.Column(db.String(4), nullable=False, default='BTC')
+
+    sent_transactions = db.relationship('Transaction',foreign_keys='Transaction.sender_id',back_populates='sender',cascade='all, delete-orphan',lazy='dynamic')
     sent_remittance = db.relationship('Remittance', foreign_keys='Remittance.sender_id' ,back_populates='user', cascade='all, delete-orphan')
     received_remittances = db.relationship('Remittance', foreign_keys='Remittance.receiver_id', back_populates='receiver', cascade='all, delete-orphan')
     wallets = db.relationship('Wallet', back_populates='user', cascade='all, delete-orphan')
-
+    received_transactions = db.relationship('Transaction',foreign_keys='Transaction.receiver_id',back_populates='receiver',cascade='all, delete-orphan',lazy='dynamic')
 
     @hybrid_property
     def password(self):
-        return self._password_hash
+        return self.password_hash
 
     @password.setter
     def password(self, password):
