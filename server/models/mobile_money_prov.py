@@ -14,6 +14,8 @@ class MobileMoneyProv(db.Model, SerializerMixin):
     api_url = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    country = db.Column(db.String(50), nullable=True)
+
 
     payment_methods = db.relationship('payment_methods', back_populates='provider', cascade='all, delete-orphan')
     exchange_rate = db.relationship('ExchangeRate', back_populates='provider')
