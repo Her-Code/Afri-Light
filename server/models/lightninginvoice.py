@@ -17,6 +17,8 @@ class LightningInvoice(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     remittance_id = db.Column(db.Integer, db.ForeignKey('remittance.id'), nullable=False)
+    r_hash_hex = db.Column(db.String(64), nullable=False, unique=True)
+
     
     remittance = db.relationship('Remittance', back_populates='lightning_invoice')
     wallet = db.relationship('Wallet', back_populates='lightning_invoices')
