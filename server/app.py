@@ -8,6 +8,7 @@ from flask_restful import Resource,Api
 from functools import wraps
 from flask_mail import Mail,Message
 from utils.email import send_email
+from datetime import datetime,timedelta
 
 from models.db import db
 from models.user import User
@@ -195,21 +196,6 @@ class Login(Resource):
         return jsonify({'message': 'Invalid credentials', 'status': 401})
 api.add_resource(Login, '/login')
 
-
-# --- Wallet Resources ---
-
-# class WalletBalanceResource(Resource):
-#     @jwt_required()
-#     def get(self):
-#         user_id = get_jwt_identity()
-#         wallet = Wallet.query.filter_by(user_id=user_id).first()
-#         if not wallet:
-#             return {'message': 'Wallet not found'}, 404
-#         return {
-#             'balance_btc': wallet.balance_btc,
-#             'balance_fiat': wallet.balance_fiat
-#         }
-
 class WalletBalanceResource(Resource):
     @jwt_required()
     def get(self):
@@ -391,74 +377,6 @@ class RemittanceCreateResource(Resource):
             'exchange_rate_used': exchange_rate_used
         }, 201
 
-# class RemittanceCreateResource(Resource):
-#     @jwt_required()
-#     def post(self):
-#         user_id = get_jwt_identity()
-#         data = request.get_json()
-
-#         receiver_id = data.get('receiver_id')
-#         amount = data.get('amount')
-#         currency = data.get('currency', '').upper()
-#         preferred_payout_currency = data.get('preferred_payout_currency', None)  # optional override from sender
-
-#         if not receiver_id or not amount or not currency:
-#             return {'message': 'Missing fields'}, 400
-
-#         receiver = User.query.get(receiver_id)
-#         if not receiver:
-#             return {'message': 'Receiver not found'}, 404
-
-#         # Determine the receiver's payout currency preference (override if provided)
-#         payout_currency = (preferred_payout_currency.upper() if preferred_payout_currency else receiver.preferred_payout_currency).upper()
-
-#         # Convert the sender’s amount to sats (BTC smallest unit)
-#         if currency != 'BTC':
-#             rate_to_btc = ExchangeRate.query.filter_by(from_currency=currency, to_currency='BTC').first()
-#             if not rate_to_btc:
-#                 return {'message': f'No exchange rate from {currency} to BTC found'}, 400
-#             amount_sats = int(float(amount) * rate_to_btc.rate * 1e8)  # Convert BTC to sats
-#             amount_fiat = float(amount)  # original fiat amount sent by sender
-#             exchange_rate_used = rate_to_btc.rate
-#         else:
-#             amount_sats = int(float(amount) * 1e8)  # convert BTC to sats
-#             # For fiat equivalent, convert from BTC to receiver's fiat currency if needed
-#             if payout_currency != 'BTC':
-#                 rate_btc_to_fiat = ExchangeRate.query.filter_by(from_currency='BTC', to_currency=payout_currency).first()
-#                 if not rate_btc_to_fiat:
-#                     return {'message': f'No exchange rate from BTC to {payout_currency} found'}, 400
-#                 amount_fiat = float(amount) * rate_btc_to_fiat.rate
-#                 exchange_rate_used = rate_btc_to_fiat.rate
-#             else:
-#                 amount_fiat = 0  # no fiat involved
-#                 exchange_rate_used = None
-
-#         remittance = Remittance(
-#             sender_id=user_id,
-#             receiver_id=receiver_id,
-#             receiver_name=receiver.name,
-#             receiver_phone=receiver.phone,
-#             amount_sats=amount_sats,
-#             amount_fiat=amount_fiat,
-#             status='pending',
-#             payment_method_id=data.get('payment_method_id'),  # assuming sender provides
-#             receiver_currency=payout_currency,
-#             preferred_payout_currency=payout_currency,
-#             exchange_rate_used=exchange_rate_used
-#         )
-
-#         db.session.add(remittance)
-#         db.session.commit()
-
-#         return {
-#             'message': 'Remittance created',
-#             'remittance_id': remittance.id,
-#             'amount_sats': amount_sats,
-#             'amount_fiat': amount_fiat,
-#             'preferred_payout_currency': payout_currency,
-#             'exchange_rate_used': exchange_rate_used
-#         }, 201
-
 class RemittanceStatusResource(Resource):
     @jwt_required()
     def get(self, remittance_id):
@@ -559,40 +477,31 @@ class LightningInvoiceCreateResource(Resource):
         # Call real LND gRPC to create invoice
         invoice_data = lnd.add_invoice(value=int(amount), memo=memo)
 
+        # You must now extract expiry from invoice_data if available or set a default (e.g., 1 hour)
+        expiration = datetime.utcnow() + timedelta(seconds=invoice_data.expiry or 3600)
+
+        wallet = Wallet.query.filter_by(user_id=user_id).first()
+        if not wallet:
+            return {'message': 'Wallet not found'}, 404
+
+        # Ensure remittance is linked if needed, or set it nullable
         invoice = LightningInvoice(
-            user_id=user_id,
-            amount=int(amount),
-            memo=memo,
+            wallet_id=wallet.id,
+            invoice=invoice_data.payment_request,
+            amount_sats=int(amount),
             status='pending',
-            payment_request=invoice_data.payment_request,
-            r_hash_hex=invoice_data.r_hash.hex()
+            expiration_time=expiration,
+            r_hash_hex=invoice_data.r_hash.hex(),
+            remittance_id=None # or set based on request data if available
         )
         db.session.add(invoice)
         db.session.commit()
 
         return {
             'invoice_id': invoice.id,
-            'payment_request': invoice.payment_request
+            'payment_request': invoice.invoice
         }, 201
-    # @jwt_required()
-    # def post(self):
-    #     user_id = get_jwt_identity()
-    #     data = request.get_json()
-    #     amount = data.get('amount')
-    #     memo = data.get('memo', '')
-    #     if not amount or amount <= 0:
-    #         return {'message': 'Invalid amount'}, 400
 
-    #     invoice = LightningInvoice(
-    #         user_id=user_id,
-    #         amount=amount,
-    #         memo=memo,
-    #         status='pending',
-    #         payment_request='lnbc1...'  # Placeholder, integrate actual LN invoice generation here
-    #     )
-    #     db.session.add(invoice)
-    #     db.session.commit()
-    #     return {'invoice_id': invoice.id, 'payment_request': invoice.payment_request}, 201
 class LightningInvoiceCheckByHashResource(Resource):
     @jwt_required()
     def get(self, r_hash_hex):
@@ -642,39 +551,12 @@ class LightningInvoiceCheckByIdResource(Resource):
             'status': 'settled' if lnd_invoice.settled else 'pending',
             'payment_request': invoice.payment_request
         }, 200
-    # @jwt_required()
-    # def get(self, invoice_id):
-    #     invoice = LightningInvoice.query.get(invoice_id)
-    #     if not invoice:
-    #         return {'message': 'Invoice not found'}, 404
-    #     user_id = get_jwt_identity()
-    #     if invoice.user_id != user_id:
-    #         return {'message': 'Access denied'}, 403
-    #     return {'status': invoice.status, 'amount': invoice.amount, 'memo': invoice.memo}
-    
 
 api.add_resource(LightningInvoiceCreateResource, '/invoice/create')
 api.add_resource(LightningInvoiceCheckByHashResource, '/lightning/invoices/<string:r_hash_hex>')
 api.add_resource(LightningInvoiceCheckByIdResource, '/invoice/check/<int:invoice_id>')
 
 # --- Transaction Resources ---
-
-# class TransactionListResource(Resource):
-#     @jwt_required()
-#     def get(self):
-#         user_id = get_jwt_identity()
-#         transactions = Transaction.query.filter(
-#             (Transaction.sender_id == user_id) | (Transaction.receiver_id == user_id)
-#         ).all()
-#         return {'transactions': [
-#             {
-#                 'id': t.id,
-#                 'amount': t.amount,
-#                 'currency': t.currency,
-#                 'status': t.status,
-#                 'timestamp': t.timestamp.isoformat()
-#             } for t in transactions
-#         ]}
 class TransactionListResource(Resource):
     @jwt_required()
     def get(self):
@@ -754,37 +636,6 @@ class TransactionCreateResource(Resource):
                         "Thank you for using Afrilight!"
                     )
                 )
-
-
-            # # Send email to sender
-            # if sender and sender.email:
-            #     msg_sender = Message(
-            #         subject="Transaction Sent - Afrilight",
-            #         recipients=[sender.email],
-            #         body=(
-            #             f"Hi {sender.email},\n\n"
-            #             f"You have successfully sent {amount_sats} sats "
-            #             f"(approx. ${amount_fiat}) to {receiver.email if receiver else 'your recipient'}.\n"
-            #             f"Transaction ID: {transaction.id}\n\n"
-            #             "Thank you for using Afrilight!"
-            #         )
-            #     )
-            #     mail.send(msg_sender)
-
-            # # Send email to receiver
-            # if receiver and receiver.email:
-            #     msg_receiver = Message(
-            #         subject="Transaction Received - Afrilight",
-            #         recipients=[receiver.email],
-            #         body=(
-            #             f"Hi {receiver.email},\n\n"
-            #             f"You have received {amount_sats} sats "
-            #             f"(approx. ${amount_fiat}) from {sender.email if sender else 'a sender'}.\n"
-            #             f"Transaction ID: {transaction.id}\n\n"
-            #             "Thank you for using Afrilight!"
-            #         )
-            #     )
-            #     mail.send(msg_receiver)
 
             return {
                 'message': 'Transaction created successfully',
@@ -892,16 +743,6 @@ api.add_resource(PaymentMethodCreateResource, '/payment-method')
 api.add_resource(PaymentMethodUpdateDeleteResource, '/payment-method/<int:id>')
 
 # --- MobileMoneyProv Resources ---
-
-# class MobileMoneyProvListResource(Resource):
-#     @jwt_required()
-#     def get(self):
-#         providers = MobileMoneyProv.query.all()
-#         return {'providers': [
-#             {'id': p.id, 'name': p.name, 'country': p.country} for p in providers
-#         ]}
-    
-# api.add_resource(MobileMoneyProvListResource, '/mobile-money/providers')
 # List all providers (GET)
 class MobileMoneyProvListResource(Resource):
     @jwt_required()
@@ -967,21 +808,26 @@ class ExchangeRateResource(Resource):
     def get(self, from_currency, to_currency):
         from_currency = from_currency.upper()
         to_currency = to_currency.upper()
+        amount = request.args.get('amount', type=float)
 
-        # Only support BTC <-> fiat conversions for now
         if from_currency != 'BTC' and to_currency != 'BTC':
             return {'message': 'Only BTC <-> fiat exchange supported'}, 400
 
-        # Case 1: BTC -> fiat
+        # Case 1: BTC -> fiat (user provides amount in sats)
         if from_currency == 'BTC':
             rate = ExchangeRate.query.filter_by(currency_code=to_currency).first()
             if rate:
+                sats_to_btc = Decimal(amount) / Decimal(1e8) if amount else None
+                fiat_amount = float(sats_to_btc * rate.btc_to_fiat) if sats_to_btc is not None else None
                 return {
                     'from_currency': from_currency,
                     'to_currency': to_currency,
                     'rate': float(rate.btc_to_fiat),
+                    'amount_sats': amount,
+                    'converted_fiat': round(fiat_amount, 2) if fiat_amount else None,
                     'fetched_at': rate.fetched_at.isoformat()
                 }
+
             # fallback to external API
             url = f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={to_currency.lower()}"
             response = requests.get(url)
@@ -990,25 +836,33 @@ class ExchangeRateResource(Resource):
             data = response.json()
             if 'bitcoin' not in data or to_currency.lower() not in data['bitcoin']:
                 return {'message': 'Exchange rate not found in external API'}, 404
-            rate_value = data['bitcoin'][to_currency.lower()]
+            rate_value = Decimal(data['bitcoin'][to_currency.lower()])
+            sats_to_btc = Decimal(amount) / Decimal(1e8) if amount else None
+            fiat_amount = float(sats_to_btc * rate_value) if sats_to_btc is not None else None
             return {
                 'from_currency': from_currency,
                 'to_currency': to_currency,
-                'rate': rate_value,
+                'rate': float(rate_value),
+                'amount_sats': amount,
+                'converted_fiat': round(fiat_amount, 2) if fiat_amount else None,
                 'fetched_at': None
             }
 
-        # Case 2: fiat -> BTC
+        # Case 2: fiat -> BTC (user provides amount in fiat, gets sats)
         if to_currency == 'BTC':
             rate = ExchangeRate.query.filter_by(currency_code=from_currency).first()
             if rate and rate.btc_to_fiat != 0:
                 inverse_rate = 1 / float(rate.btc_to_fiat)
+                sats_amount = int((Decimal(amount) / rate.btc_to_fiat) * Decimal(1e8)) if amount else None
                 return {
                     'from_currency': from_currency,
                     'to_currency': to_currency,
                     'rate': inverse_rate,
+                    'amount_fiat': amount,
+                    'converted_sats': sats_amount,
                     'fetched_at': rate.fetched_at.isoformat()
                 }
+
             # fallback to external API
             url = f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={from_currency.lower()}"
             response = requests.get(url)
@@ -1017,25 +871,20 @@ class ExchangeRateResource(Resource):
             data = response.json()
             if 'bitcoin' not in data or from_currency.lower() not in data['bitcoin']:
                 return {'message': 'Exchange rate not found in external API'}, 404
-            rate_value = data['bitcoin'][from_currency.lower()]
+            rate_value = Decimal(data['bitcoin'][from_currency.lower()])
             if rate_value == 0:
                 return {'message': 'Invalid rate from external API'}, 502
+            sats_amount = int((Decimal(amount) / rate_value) * Decimal(1e8)) if amount else None
             return {
                 'from_currency': from_currency,
                 'to_currency': to_currency,
-                'rate': 1 / rate_value,
+                'rate': 1 / float(rate_value),
+                'amount_fiat': amount,
+                'converted_sats': sats_amount,
                 'fetched_at': None
             }
-
-
+        
 api.add_resource(ExchangeRateResource, '/exchange-rate/<string:from_currency>/<string:to_currency>')
-
-
-# # Start invoice listener thread
-# # start_invoice_streamer()
-# invoice_streamer = InvoiceStreamer(lnd)
-# invoice_streamer.start()
-
 
 if __name__ == '__main__':
     app.run(debug=True)
