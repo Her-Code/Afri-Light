@@ -11,12 +11,14 @@ class LightningInvoice(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     wallet_id = db.Column(db.Integer, db.ForeignKey('wallet.id'), nullable=False)
     invoice = db.Column(db.String(255), nullable=False)
-    amount_btc = db.Column(db.Numeric(10, 2), nullable=False)
+    amount_sats = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(50), nullable=False) 
     expiration_time = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    remittance_id = db.Column(db.Integer, db.ForeignKey('remittance.id'), nullable=False)
+    remittance_id = db.Column(db.Integer, db.ForeignKey('remittance.id'), nullable=True)
+    r_hash_hex = db.Column(db.String(64), nullable=False, unique=True)
+
     
     remittance = db.relationship('Remittance', back_populates='lightning_invoice')
     wallet = db.relationship('Wallet', back_populates='lightning_invoices')
